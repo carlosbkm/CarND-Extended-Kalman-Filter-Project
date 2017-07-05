@@ -90,11 +90,9 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
       float phi    = measurement_pack.raw_measurements_(1);
       ekf_.x_(0) = ro * cos(phi);
       ekf_.x_(1) = ro * sin(phi);
-//      float ro_dot = measurement_pack.raw_measurements_(2);
-//      ekf_.x_(0) = ro     * cos(phi);
-//      ekf_.x_(1) = ro     * sin(phi);
-//      ekf_.x_(2) = ro_dot * cos(phi);
-//      ekf_.x_(3) = ro_dot * sin(phi);
+      float ro_dot = measurement_pack.raw_measurements_(2);
+      ekf_.x_(2) = ro_dot * cos(phi);
+      ekf_.x_(3) = ro_dot * sin(phi);
     }
     else if (measurement_pack.sensor_type_ == MeasurementPackage::LASER) {
       /**
@@ -112,7 +110,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     }
     
     ekf_.x_(2) = 0;
-    ekf_.x_(2) = 0;
+    ekf_.x_(3) = 0;
     
     //ekf_.F_ << set to 1 diagonal matrix
     previous_timestamp_ = measurement_pack.timestamp_;
