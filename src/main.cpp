@@ -4,6 +4,20 @@
 #include <math.h>
 #include "FusionEKF.h"
 #include "tools.h"
+#include "ground_truth_package.h"
+
+#include <stdio.h>  /* defines FILENAME_MAX */
+#ifdef WINDOWS
+#include <direct.h>
+#define GetCurrentDir _getcwd
+#else
+#include <unistd.h>
+#define GetCurrentDir getcwd
+#endif
+
+#include <string>
+
+#include <stdexcept>
 
 using namespace std;
 
@@ -26,8 +40,87 @@ std::string hasData(std::string s) {
   return "";
 }
 
-int main()
+void check_arguments(int argc, char* argv[]) {
+  string usage_instructions = "Usage instructions: ";
+  usage_instructions += argv[0];
+  usage_instructions += " path/to/input.txt output.txt";
+  
+  bool has_valid_args = false;
+  
+  // make sure the user has provided input and output files
+  if (argc == 1) {
+    cerr << usage_instructions << endl;
+  } else if (argc == 2) {
+    cerr << "Please include an output file.\n" << usage_instructions
+				<< endl;
+  } else if (argc == 3) {
+    has_valid_args = true;
+  } else if (argc > 3) {
+    cerr << "Too many arguments.\n" << usage_instructions << endl;
+  }
+  
+  if (!has_valid_args) {
+    exit(EXIT_FAILURE);
+  }
+}
+
+void check_files(ifstream& in_file, string& in_name, ofstream& out_file,
+                 string& out_name) {
+  if (!in_file.is_open()) {
+    cerr << "Cannot open input file: " << in_name << endl;
+    exit(EXIT_FAILURE);
+  }
+  
+  if (!out_file.is_open()) {
+    cerr << "Cannot open output file: " << out_name << endl;
+    exit(EXIT_FAILURE);
+  }
+}
+
+std::string getWorkingDirectory () {
+  char cCurrentPath[FILENAME_MAX];
+  
+  if (!GetCurrentDir(cCurrentPath, sizeof(cCurrentPath)))
+  {
+    throw std::invalid_argument( "Couldn't get working directory");
+  }
+  
+  cCurrentPath[sizeof(cCurrentPath) - 1] = '\0'; /* not really required */
+  
+  string working_directory = std::string(cCurrentPath);
+  
+  std::string debug_folder ("/Debug");
+  std::size_t found = working_directory.rfind(debug_folder);
+  if (found!=std::string::npos)
+    working_directory.replace (found, debug_folder.length(),"/");
+  
+  printf ("The current working directory is: %s\n", cCurrentPath);
+  printf("The path is: %s\n", working_directory.c_str());
+  return working_directory;
+}
+
+int main(int argc, char* argv[])
 {
+
+  //Used to check input and output files
+  check_arguments(argc, argv);
+ 
+  std::string working_directory = getWorkingDirectory();
+  
+  string in_file_name_ = working_directory + argv[1];
+  ifstream in_file_(in_file_name_.c_str(), ifstream::in);
+  
+  string out_file_name_ = working_directory + argv[2];
+  ofstream out_file_(out_file_name_.c_str(), ofstream::out);
+  
+  check_files(in_file_, in_file_name_, out_file_, out_file_name_);
+  
+  vector<MeasurementPackage> measurement_pack_list;
+  vector<GroundTruthPackage> gt_pack_list;
+  
+  string line;
+  //-------------------------------------
+  
   uWS::Hub h;
 
   // Create a Kalman Filter instance
@@ -38,7 +131,7 @@ int main()
   vector<VectorXd> estimations;
   vector<VectorXd> ground_truth;
 
-  h.onMessage([&fusionEKF,&tools,&estimations,&ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  h.onMessage([&fusionEKF,&tools,&estimations,&ground_truth, &out_file_](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -136,6 +229,17 @@ int main()
           auto msg = "42[\"estimate_marker\"," + msgJson.dump() + "]";
           // std::cout << msg << std::endl;
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+          
+          out_file_ << p_x << "\t";
+          out_file_ << p_y << "\t";
+          out_file_ << v1 << "\t";
+          out_file_ << v2 << "\t";
+          out_file_ << RMSE(0) << "\t";
+          out_file_ << RMSE(1) << "\t";
+          out_file_ << x_gt << "\t";
+          out_file_ << y_gt << "\t";
+          out_file_ << vx_gt << "\t";
+          out_file_ << vy_gt << "\n";
 	  
         }
       } else {
