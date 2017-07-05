@@ -26,8 +26,7 @@ void KalmanFilter::Predict() {
   */
     x_ = F_ * x_;
     MatrixXd Ft = F_.transpose();
-    P_ = F_* P_* Ft + Q_;
-    
+    P_ = F_* P_* Ft + Q_;    
 }
 
 void KalmanFilter::Update(const VectorXd &z) {
@@ -37,16 +36,8 @@ void KalmanFilter::Update(const VectorXd &z) {
   */
   VectorXd z_pred = H_ * x_;
   VectorXd y = z - z_pred;
-  MatrixXd Ht = H_.transpose();
-  MatrixXd S = H_ * P_ * Ht + R_;
-  MatrixXd Si = S.inverse();
-  MatrixXd K = P_ * Ht * Si;
-    
-  //new state
-  x_ = x_ + (K * y);
-  long x_size = x_.size();
-  MatrixXd I = MatrixXd::Identity(x_size, x_size);
-  P_ = (I - K * H_) * P_;
+  
+  UpdateCommon(y);
 }
 
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
@@ -55,27 +46,34 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
     * update the state by using Extended Kalman Filter equations
   */
   float rho = sqrt(x_(0)*x_(0) + x_(1)*x_(1));
-  float phi = atan2(x_(1), x_(0));
-  float rho_dot;
-  if (fabs(rho) < 0.0001) {
-      rho_dot = 0;
-  } else {
-      rho_dot = (x_(0)*x_(2) + x_(1)*x_(3))/rho;
-  }
+  
+  float phi = atan2(0.0001, 0.0001);
+  if(x_(1) != 0.0 && x_(0) != 0.0) phi = atan2(x_(1), x_(0));
+  
+  float rho_dot = 0.0;
+  if (fabs(rho) > 0.0001) rho_dot = (x_(0)*x_(2) + x_(1)*x_(3))/rho;
+  
   VectorXd z_pred(3);
   z_pred << rho, phi, rho_dot;
   VectorXd y = z - z_pred;
-  MatrixXd Ht = H_.transpose();
-  MatrixXd S = H_ * P_ * Ht + R_;
-  MatrixXd Si = S.inverse();
-  MatrixXd PHt = P_ * Ht;
-  MatrixXd K = PHt * Si;
+  NormalizeAngle(y(1));
   
-  //new estimate
-  x_ = x_ + (K * y);
-  long x_size = x_.size();
-  MatrixXd I = MatrixXd::Identity(x_size, x_size);
-  P_ = (I - K * H_) * P_;
+  UpdateCommon(y);
+}
 
+void KalmanFilter::UpdateCommon(const VectorXd& y)
+{
+  const MatrixXd PHt = P_ * H_.transpose();
+  const MatrixXd S = H_ * PHt + R_;
+  const MatrixXd K = PHt * S.inverse();
   
+  //new state
+  x_ += K * y;
+  P_ -= K * H_ * P_;
+}
+
+void KalmanFilter::NormalizeAngle(double& phi)
+{
+  phi = atan2(0.0001, 0.0001);
+  if(sin(phi) != 0.0 && cos(phi) != 0.0) phi = atan2(sin(phi), cos(phi));
 }
