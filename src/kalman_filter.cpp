@@ -47,8 +47,8 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   */
   float rho = sqrt(x_(0)*x_(0) + x_(1)*x_(1));
   
-  float phi = atan2(0.0001, 0.0001);
-  if(x_(1) != 0.0 && x_(0) != 0.0) phi = atan2(x_(1), x_(0));
+  float phi = atan2(0.001, 0.001);
+  if (x_(1) > 0.001 && x_(0) > 0.001) phi = atan2(x_(1), x_(0));
   
   float rho_dot = 0.0;
   if (fabs(rho) > 0.0001) rho_dot = (x_(0)*x_(2) + x_(1)*x_(3))/rho;
@@ -74,6 +74,11 @@ void KalmanFilter::UpdateCommon(const VectorXd& y)
 
 void KalmanFilter::NormalizeAngle(double& phi)
 {
-  phi = atan2(0.0001, 0.0001);
-  if(sin(phi) != 0.0 && cos(phi) != 0.0) phi = atan2(sin(phi), cos(phi));
+  if (sin(phi) < 0.001 && cos(phi) < 0.001){
+    phi = atan2(0.001, 0.001);
+  } else {
+    phi = atan2(sin(phi), cos(phi));
+  }
+  
+  
 }
